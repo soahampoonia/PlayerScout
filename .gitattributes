@@ -1,0 +1,4 @@
+# Files run inside Linux containers, so keep LF endings even on Windows.
+* text=auto eol=lf
+*.png binary
+*.ico binary

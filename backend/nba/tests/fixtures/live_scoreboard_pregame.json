@@ -1,0 +1,28 @@
+{
+  "_note": "Recorded from cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json on 2026-11-09 before tip-off; one game shown in full, game leaders and period scores trimmed.",
+  "meta": {"version": 1, "request": "https://nba-prod-us-east-1-mediaops-stats.s3.amazonaws.com/NBA/liveData/scoreboard/todaysScoreboard_00.json", "time": "2026-11-09 04:44:54.4454", "code": 200},
+  "scoreboard": {
+    "gameDate": "2026-11-09",
+    "games": [
+      {
+        "gameId": "0022600203",
+        "gameCode": "20261109/LALATL",
+        "gameStatus": 1,
+        "gameStatusText": "7:00 pm ET",
+        "period": 0,
+        "gameClock": "",
+        "gameTimeUTC": "2026-11-10T00:00:00Z",
+        "gameEt": "2026-11-09T19:00:00Z",
+        "regulationPeriods": 4,
+        "ifNecessary": false,
+        "isNeutral": false,
+        "seriesGameNumber": "",
+        "seriesText": "",
+        "homeTeam": {"teamId": 1610612737, "teamName": "Hawks", "teamCity": "Atlanta", "teamTricode": "ATL", "wins": 7, "losses": 4, "score": 0, "seed": null, "inBonus": null, "timeoutsRemaining": 0,
+                     "periods": [{"period": 1, "periodType": "REGULAR", "score": 0}, {"period": 2, "periodType": "REGULAR", "score": 0}]},
+        "awayTeam": {"teamId": 1610612747, "teamName": "Lakers", "teamCity": "Los Angeles", "teamTricode": "LAL", "wins": 9, "losses": 2, "score": 0, "seed": null, "inBonus": null, "timeoutsRemaining": 0},
+        "pbOdds": {"team": null, "odds": 0, "suspended": 0}
+      }
+    ]
+  }
+}

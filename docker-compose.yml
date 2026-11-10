@@ -1,0 +1,107 @@
+# Player Scout v2: local development stack.
+#   docker compose up --build
+# then open http://localhost:5173
+#
+# Every value below has a default, so a .env file is optional (see .env.example).
+
+x-backend: &backend
+  build: ./backend
+  image: player-scout-backend
+  environment: &backend-env
+    DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-change-me}
+    DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    POSTGRES_DB: ${POSTGRES_DB:-playerscout}
+    POSTGRES_USER: ${POSTGRES_USER:-scout}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scout}
+    POSTGRES_HOST: db
+    POSTGRES_PORT: "5432"
+    REDIS_URL: redis://redis:6379
+    NBA_SEASON: ${NBA_SEASON:-}
+    NBA_LOG_SEASONS: ${NBA_LOG_SEASONS:-2}
+    NBA_PROXY: ${NBA_PROXY:-}
+    MARKET_THIN_SPREAD: ${MARKET_THIN_SPREAD:-0.05}
+    MARKET_THIN_MIN_VOLUME_24H: ${MARKET_THIN_MIN_VOLUME_24H:-100}
+    MARKET_SNAPSHOT_HEARTBEAT: ${MARKET_SNAPSHOT_HEARTBEAT:-600}
+    LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+    LLM_MODEL: ${LLM_MODEL:-gpt-6-luna}
+    LLM_REASONING_EFFORT: ${LLM_REASONING_EFFORT:-medium}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  volumes:
+    - ./backend:/app
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-playerscout}
+      POSTGRES_USER: ${POSTGRES_USER:-scout}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scout}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  # Django (REST now, WebSockets from build step 4). Applies migrations, seeds teams
+  # and players from data bundled with nba_api, and queues the first NBA sync.
+  api:
+    <<: *backend
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py bootstrap &&
+             python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  # Runs the sync jobs. Restart it after changing task code: `docker compose restart worker`.
+  worker:
+    <<: *backend
+    command: celery -A config worker -l info --concurrency 2
+
+  # Fires the nightly jobs (times are Eastern; see CELERY_BEAT_SCHEDULE in settings.py).
+  beat:
+    <<: *backend
+    command: celery -A config beat -l info --schedule /tmp/celerybeat-schedule
+
+  frontend:
+    build: ./frontend
+    environment:
+      API_PROXY_TARGET: http://api:8000
+      VITE_USE_POLLING: "true"   # file watching through a bind mount needs polling on Windows and macOS
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Keeps Polymarket prices current over a WebSocket. If it stops, beat's
+  # poll_midpoints job takes over every minute until it is back.
+  market_stream:
+    <<: *backend
+    command: python manage.py market_stream
+
+volumes:
+  pgdata:
